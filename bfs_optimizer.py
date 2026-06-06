@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from typing import Dict
 
 
-WIDTH = 32
-MODULE_KEY = "wallace32_n3_5"
-MAX_DEPTH = 7
-BEAM_WIDTH = 2500
+WIDTH = 16
+MODULE_KEY = "wallace16_n3_5"
+MAX_DEPTH = 5
+BEAM_WIDTH = 1500
 
 
 @dataclass

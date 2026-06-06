@@ -3,7 +3,6 @@ from wallace_generator import (
     verify_result,
     write_pdf,
     write_report,
-    write_testbench,
     write_verilog,
 )
 
@@ -23,7 +22,6 @@ if __name__ == "__main__":
     )
     write_pdf(result, f"matrix_phases_plain_5322_{N}bit.pdf", width=N)
     write_verilog(result, f"wallace{N}_plain_5322.v", width=N, variant="normal")
-    write_testbench(result, f"tb_wallace{N}_plain_5322.v", width=N, variant="normal")
 
     max_height = max((len(bits) for bits in result.columns.values()), default=0)
     c53 = sum(1 for i in result.instances if i.kind == "c53")

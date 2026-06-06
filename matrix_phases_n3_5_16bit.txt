@@ -1,4 +1,4 @@
-Reduction report: 5to3_then_3to2_from_phase_99, 16x16
+Reduction report: optimized_5to3_then_3to2_from_phase_99, 16x16
 Stages: 5
 Instances: 126
 Final max column height: 2

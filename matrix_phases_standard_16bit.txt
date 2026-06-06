@@ -1,4 +1,4 @@
-Reduction report: standard_wallace_32_22, 16x16
+Reduction report: standard_wallace_3to2_2to2, 16x16
 Stages: 6
 Instances: 254
 Final max column height: 2
