@@ -30,6 +30,20 @@ Each multiplier starts from the same high-level structure:
 
 The standard Wallace version mainly uses ordinary Wallace-style reduction with 3:2 compressor behavior. The plain 5:3 version adds 5:3 compressors to reduce taller columns more aggressively. The BFS-optimized version still uses 5:3, 3:2, and 2:2 reduction elements, but chooses their placement through a search over valid matrix states.
 
+## NAND-Based 5:3 Compressor Reference
+
+The 5:3 compressor direction in this project was motivated by the paper **"Multiplier Using NAND Based Compressors"** from the 2019 International Conference on Electronics, Materials Engineering and Nano-Technology (IEMENTech). That work proposes a NAND-based 5:3 compressor and uses it as a building block for higher-order compressor structures in multiplier partial-product reduction.
+
+The important idea taken from that direction is that a compressor should not be treated only as a black-box full-adder replacement. Its internal gate structure affects the delay of the whole reduction tree. A NAND-based implementation is attractive because NAND gates are simple, regular, and efficient in CMOS logic. The paper also discusses a stacking-based approach for low-order compressors, where input bits are grouped and combined so that the number of XOR-heavy operations on the critical path is reduced.
+
+In this project, the compressor is used at the matrix-reduction level. Bits with the same binary weight are first stacked in their corresponding partial-product column. A 5:3 compressor then takes five same-weight bits from one column and converts them into three output bits:
+
+- one output remains in the same weight column
+- one output is reassigned to the next higher-weight column
+- one output is reassigned two columns higher
+
+This preserves the numeric weight while reducing the height of the current column. The BFS/DP optimizer then decides where additional 3:2 and 2:2 cleanup compressors are needed after the 5:3 compression. In other words, the NAND-based 5:3 compressor provides the fast local compression idea, while the BFS schedule controls how those compressors are arranged across the whole multiplier matrix.
+
 ### Custom 5:3 Compressor Structure
 
 TODO: Insert 5:3 compressor structure diagram and explanation here.
@@ -140,6 +154,8 @@ The final BFS/DP flow is:
 The printed compressor placements are stored as overrides for the generator. The generator then follows those forced placements while producing the optimized 5:3 Wallace multiplier.
 
 ## Top-Level Result Summary
+
+The physical results below were generated using the OpenLane/OpenROAD implementation flow targeting the SkyWater SKY130 process technology. This means the area, routing, via, DRC/LVS, and power numbers are post-synthesis/post-place-and-route implementation metrics, not only RTL-level estimates.
 
 | Design | Critical Path | From -> To | Synthesis Area | Post-PnR Stdcell Area | Core Area | Routed Wirelength | Vias | Total Power |
 |---|---:|---|---:|---:|---:|---:|---:|---:|
@@ -268,7 +284,7 @@ The BFS version is best among the three reported power results. Compared with th
 
 Before physical implementation, the generated multiplier functionality was checked in Vivado using simulation. This step verified that the generated Verilog produced the expected multiplication result before moving to physical design analysis.
 
-All three designs also completed synthesis with zero unmapped instances and zero synthesis check errors. The reported physical verification metrics show clean final layouts:
+The designs were then implemented through the OpenLane flow for the SKY130 technology node. All three designs completed synthesis with zero unmapped instances and zero synthesis check errors. The reported physical verification metrics show clean final layouts:
 
 | Design | Routing DRC Errors | Magic DRC Errors | LVS Device Differences | LVS Net Differences | LVS Errors |
 |---|---:|---:|---:|---:|---:|
@@ -285,3 +301,7 @@ The project shows a clear design progression. The standard Wallace multiplier is
 The BFS-optimized 5:3 design gives the best balance among the optimized variants. It reaches the lowest critical path of `8.8064 ns`, improves delay by about `3.66%` over the standard Wallace multiplier, and reduces area, routed wirelength, vias, and total power compared with the plain 5:3 version.
 
 The final result is not that 5:3 compression is automatically better in every metric. The better conclusion is more careful: 5:3 compressors can reduce delay, but their placement matters. A search-based reduction strategy helps preserve the timing benefit while reducing unnecessary hardware cost.
+
+## Reference
+
+[1] "Multiplier Using NAND Based Compressors," 2019 3rd International Conference on Electronics, Materials Engineering and Nano-Technology (IEMENTech), IEEE, document 8981067. Available: https://ieeexplore.ieee.org/document/8981067
