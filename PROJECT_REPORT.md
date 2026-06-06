@@ -266,7 +266,9 @@ The BFS version is best among the three reported power results. Compared with th
 
 ## Verification and Physical Cleanliness
 
-All three designs completed synthesis with zero unmapped instances and zero synthesis check errors. The reported physical verification metrics also show clean final layouts:
+Before physical implementation, the generated multiplier functionality was checked in Vivado using simulation. This step verified that the generated Verilog produced the expected multiplication result before moving to physical design analysis.
+
+All three designs also completed synthesis with zero unmapped instances and zero synthesis check errors. The reported physical verification metrics show clean final layouts:
 
 | Design | Routing DRC Errors | Magic DRC Errors | LVS Device Differences | LVS Net Differences | LVS Errors |
 |---|---:|---:|---:|---:|---:|
