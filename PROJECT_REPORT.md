@@ -38,15 +38,106 @@ This section should show the exact internal structure of the custom 5:3 compress
 
 ## BFS Reduction Method
 
-The BFS version treats the partial-product matrix as a state. A state records the number of bits present in each weight column at a given reduction phase. From one state, the reducer applies legal compressor choices such as:
+The BFS version optimizes the reduction schedule, not the logic equations inside each compressor. The key idea is to view the partial-product matrix only by **column heights**.
 
-- 5:3 compression when a column has enough bits to benefit from a larger reduction.
-- 3:2 compression for normal carry-save reduction.
-- 2:2 reduction or pass-through behavior when only small cleanup is needed.
+For a 16-bit multiplier, each column has a binary weight. Column `0` represents weight `2^0`, column `1` represents weight `2^1`, column `2` represents weight `2^2`, and so on. At the start, the partial products form a triangle of column heights:
 
-Each BFS level represents one reduction phase. The search explores possible next matrices after applying a legal set of reductions. A solution is found when every column has at most two remaining bits, meaning the matrix is ready for the final Kogge-Stone addition.
+```text
+1, 2, 3, 4, ..., 15, 16, 15, ..., 4, 3, 2, 1
+```
 
-The important point is that BFS searches by phase count. The first valid two-row matrix is therefore reached with the minimum number of reduction phases under the explored compressor rules. Within that search, the optimized version avoids blindly using larger compressors everywhere. This is why the BFS design improves the plain 5:3 result: it keeps the delay benefit of aggressive reduction while cutting back some unnecessary hardware and routing overhead.
+The goal of reduction is to make every column height at most `2`. Once that happens, the multiplier has two remaining rows, which can be added by the final Kogge-Stone adder.
+
+### How Weight Is Preserved
+
+The compressors do not change the value of the multiplier. They only move information between columns while preserving binary weight.
+
+A `3:2` compressor in column `c` consumes three bits of weight `2^c`. It produces:
+
+- one sum bit back into column `c`
+- one carry bit into column `c + 1`
+
+A `2:2` compressor behaves similarly for two input bits:
+
+- one sum bit into column `c`
+- one carry bit into column `c + 1`
+
+A `5:3` compressor consumes five bits from column `c`. Since the count of five input bits can range from `0` to `5`, the output needs three binary bits. Those outputs are assigned as:
+
+- `s0` into column `c`
+- `s1` into column `c + 1`
+- `s2` into column `c + 2`
+
+This is why the optimizer cannot look at one column alone. A compressor selected in column `c` can increase the height of later columns. The search has to account for these reassigned outputs.
+
+### Why BFS Is Used
+
+BFS is used because each BFS level represents one full reduction phase. A shorter BFS depth means fewer reduction phases, which is directly related to the number of compressor layers on the combinational path.
+
+The search starts from the initial column-height profile. Then it asks:
+
+```text
+After 1 reduction phase, can every column be <= 2?
+If not, after 2 phases?
+If not, after 3 phases?
+...
+```
+
+The first BFS depth that reaches a profile where all columns have height `<= 2` gives the minimum number of reduction phases under the explored compressor rules.
+
+### Why DP Is Used Inside Each BFS Step
+
+Inside one reduction phase, there is still a smaller optimization problem. For each column, the reducer must decide how to handle the leftover bits after applying `5:3` compressors:
+
+- use a `3:2` compressor
+- use a `2:2` compressor
+- pass bits forward unchanged
+
+The implementation first uses the maximum possible number of `5:3` compressors in each column. For example, if a column has height `13`, it uses two `5:3` compressors and leaves `3` remaining bits. The DP then decides whether those remaining bits should become a `3:2`, a `2:2`, or simple pass-through bits.
+
+DP is needed because each column receives outputs from previous columns. In the code, the output height of a column is calculated from:
+
+```text
+same-column outputs
++ carry from column c - 1
++ second-level carry from column c - 2
+```
+
+If that output height is larger than the selected target height for the phase, that choice is rejected. This prevents the optimizer from reducing one column aggressively while accidentally making a later column too tall.
+
+### What Is Minimized
+
+For every possible next-stage target height, the DP keeps the cheapest valid transition. The cost used by the optimizer is:
+
+```text
+(number of 3:2 + 2:2 compressors,
+ number of 2:2 compressors,
+ total number of compressors)
+```
+
+So the priority is:
+
+1. use fewer small cleanup compressors overall
+2. among those, use fewer `2:2` compressors
+3. among those, use fewer total compressors
+
+This does not mean the optimizer avoids `5:3` compressors. The design still uses `5:3` compressors aggressively for fast height reduction. The optimization is mainly about avoiding unnecessary `3:2` and `2:2` compressors that would increase area and routing without helping the phase count.
+
+The final BFS/DP flow is:
+
+```text
+1. Represent the matrix as column heights.
+2. Search over reduction phases using BFS.
+3. For each possible next-stage target height:
+   a. Use maximum 5:3 compressors in each column.
+   b. Use DP to choose 3:2, 2:2, or pass-through for leftovers.
+   c. Reject choices that make any output column too tall.
+   d. Keep the lowest-cost valid transition.
+4. Stop when all columns have height <= 2.
+5. Print forced compressor placements for the real Verilog generator.
+```
+
+The printed compressor placements are stored as overrides for the generator. The generator then follows those forced placements while producing the optimized 5:3 Wallace multiplier.
 
 ## Top-Level Result Summary
 
@@ -192,4 +283,3 @@ The project shows a clear design progression. The standard Wallace multiplier is
 The BFS-optimized 5:3 design gives the best balance among the optimized variants. It reaches the lowest critical path of `8.8064 ns`, improves delay by about `3.66%` over the standard Wallace multiplier, and reduces area, routed wirelength, vias, and total power compared with the plain 5:3 version.
 
 The final result is not that 5:3 compression is automatically better in every metric. The better conclusion is more careful: 5:3 compressors can reduce delay, but their placement matters. A search-based reduction strategy helps preserve the timing benefit while reducing unnecessary hardware cost.
-
