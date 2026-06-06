@@ -378,15 +378,21 @@ def export_pdf_and_delete_images(
     if phase_box_counts is not None:
         summary = Image.new("RGB", images[0].size, "white")
         draw = ImageDraw.Draw(summary)
-        font = ImageFont.load_default()
+        try:
+            font = ImageFont.truetype("arial.ttf", 26)
+        except OSError:
+            try:
+                font = ImageFont.truetype("DejaVuSans.ttf", 26)
+            except OSError:
+                font = ImageFont.load_default()
 
-        x = 40
-        y = 30
-        line_h = 24
-        draw.text((x, y), "Box Usage Summary (sizes 7, 6, 5, 4, 3, 2)", fill="#111111", font=font)
+        x = 50
+        y = 40
+        line_h = 42
+        draw.text((x, y), "Box Usage Summary (sizes 5, 3, 2)", fill="#111111", font=font)
         y += line_h * 2
 
-        sizes = [7, 6, 5, 4, 3, 2]
+        sizes = [5, 3, 2]
         total = {size: 0 for size in sizes}
         for phase_i, counts in enumerate(phase_box_counts):
             parts = []
